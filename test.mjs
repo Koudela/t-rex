@@ -12,16 +12,18 @@ import test from 'ava'
 import { tRex } from './index.mjs'
 
 test('Hello world', async t => {
-    await tRex({
+    const content = tRex({
         id: 'myRootTemplate',
-        main: async (t) => await t.hello() + ' ' + await t.world(),
+        main: (t) => t.hello() + ' ' + t.world(),
         hello: 'Hello',
         world: 'world!',
-    }).then(content => t.is(content, `Hello world!`))
+    })
+    
+    t.is(content, `Hello world!`)
 })
 
 test('Properties', async t => {
-    const result = await tRex({
+    const result = tRex({
         id: 'rT',
         rTProperty: null,
         parent: {
@@ -43,13 +45,13 @@ test('Properties', async t => {
                 ppCProperty: 4.2,
             },
         },
-        main: async (t) => ({
-            a: await t.rTProperty(),
-            b: await t.pTProperty(),
-            c: await t.ppTProperty(),
-            d: await t.rCProperty(),
-            e: await t.pCProperty(),
-            f: await t.ppCProperty(),
+        main: (t) => ({
+            a: t.rTProperty(),
+            b: t.pTProperty(),
+            c: t.ppTProperty(),
+            d: t.rCProperty(),
+            e: t.pCProperty(),
+            f: t.ppCProperty(),
         })
     })
     t.deepEqual(result, { a: null, b: true, c: [1, 2, 3], d: { key: 'value'}, e: 'value', f: 4.2 })
@@ -84,13 +86,13 @@ const context = {
 }
 
 test('t.parent call in template', async t => {
-    const result = await tRex(template, context, 'parentCall')
+    const result = tRex(template, context, 'parentCall')
     t.is(result, 'rootTemplateParentCall')
 })
 
 test('t.parent call in context', async t => {
     try {
-        await tRex(template, context, 'contextParentCall')
+        tRex(template, context, 'contextParentCall')
         t.fail()
     } catch (e) {
         t.is(e.message, '"Resource \'contextParentCall\' not found." tRex stack: [contextParentCall@rootContext]')
@@ -126,18 +128,18 @@ test('t.parent call in context with id', async t => {
 test('t.parent call in context with not existing id', async t => {
     const template = {
         id: 'rT',
-        main: async () => {
+        main: () => {
             return 'FAILURE'
         },
     }
     const context = {
         id: 'rC',
-        main: async (t) => {
-            return await t.parent('pT')
+        main: (t) => {
+            return t.parent('pT')
         },
     }
     try {
-        const result = await tRex(template, context, 'main')
+        tRex(template, context, 'main')
     } catch (e) {
         t.is(e.message, '"Resource \'main\' not found." tRex stack: [main@rC]')
     }
@@ -146,9 +148,9 @@ test('t.parent call in context with not existing id', async t => {
 test('t.iterate', async t => {
     const result = await tRex({
         id: 'rT',
-        eta: async (t, value, index, iterator, param) => value+`(${index})`+param,
-        main: async (t) => {
-            return (await t.iterate('eta', ['x1', 'x2', 'x3'], 'y')).join('|')
+        eta: (t, value, index, iterator, param) => value+`(${index})`+param,
+        main: (t) => {
+            return t.iterate('eta', ['x1', 'x2', 'x3'], 'y').join('|')
         }
     })
     t.is(result, 'x1(0)y|x2(1)y|x3(2)y')
@@ -209,8 +211,8 @@ test('500', async t => {
 test('Debugging a template', async t => {
     const template = {
         id: 'rT',
-        main: async (t) => {
-            const debug = await t.debug()
+        main: (t) => {
+            const debug = t.debug()
             return [
                 debug.contextChain,
                 debug.templateChain,
@@ -219,12 +221,12 @@ test('Debugging a template', async t => {
                 debug.printStack(),
             ]
         },
-        debug: async () => {
+        debug: () => {
             throw Error('This must not be called!')
         }
     }
     const context = { id: 'rC' }
-    const result = await tRex(template, context, 'main', true)
+    const result = tRex(template, context, 'main', true)
     t.deepEqual(result, [
         context,
         template,
@@ -284,9 +286,9 @@ test('Using debugging marks (local)', async t => {
     }, {
         id: 'rC',
         step3: async (t) => {
-            (await t.debug()).debugMarks = true
+            t.debug().debugMarks = true
             const content = 'step3'+await t.step4()+'step3'
-            ;(await t.debug()).debugMarks = false
+            t.debug().debugMarks = false
             return content
         },
         parent: {
@@ -306,17 +308,17 @@ test('Basic example', async t => {
     const parentTemplate = {
         id: 'myParentTemplate',
         parent: null,
-        main: async (t) => {
+        main: (t) => {
             return `<!doctype html>
 <html lang="en">
 <head>
-    <title>${ await t.title() }</title>
-    ${ await t.head() }
+    <title>${ t.title() }</title>
+    ${ t.head() }
 </head>
 <body>
-    ${ await t.nav() }
-    <h1>${ await t.title() }</h1>
-    ${ await t.content() }
+    ${ t.nav() }
+    <h1>${ t.title() }</h1>
+    ${ t.content() }
 </body>
 </html>`
         },
@@ -324,33 +326,33 @@ test('Basic example', async t => {
             return `<script>let that, be, empty</script>`
         },
     }
-
+    
     const renderedTemplate = {
         id: 'myTemplate',
         parent: parentTemplate,
-        nav: async (t) => {
+        nav: (t) => {
             return `
-    <nav>${ (await t.iterate('navItemBlock', await t.navItems())).join('') }
+    <nav>${ t.iterate('navItemBlock', t.navItems()).join('') }
     </nav>`
         },
-        navItemBlock: async (t, value, index) => {
+        navItemBlock: (t, value, index, original) => {
             return `
         <a href="${ value.href }">(${ index }) ${ value.content }</a>`
         },
     }
-
+    
     const context = {
         id: 'myContext',
         content: '<p>some content</p>',
-        title: 'Hello World',
+        title: 'Hello World', 
         navItems: [
             { href: 'https://hello.com', content: 'hugs to you' },
             { href: 'https://world.com', content: 'global issues' },
         ],
     }
-
-    const output = await tRex(renderedTemplate, context, 'main');
-
+        
+    const output = tRex(renderedTemplate, context, 'main');
+    
     t.is(output, `<!doctype html>
 <html lang="en">
 <head>
@@ -431,7 +433,7 @@ test('Add additional css example', async t => {
                 t.head(),
                 t.body(),
             ]
-
+            
             await Promise.all(parts)
 
             return `<!doctype html>
@@ -439,20 +441,20 @@ test('Add additional css example', async t => {
 <head>
     <title>${ await parts[0] }</title>
     ${ await parts[1] }
-    <style>${ await t.getAdditionalCss() }</style>
+    <style>${ t.getAdditionalCss() }</style>
 </head>
 <body>
     ${ await parts[2] }
 </body>
 </html>`
         },
-        addAdditionalCss: async (t, css) => {
-            const data = await t.tmpData()
+        addAdditionalCss: (t, css) => {
+            const data = t.tmpData()
             if ('additionalCss' in data) data.additionalCss.push(css)
             else data.additionalCss = [css]
         },
-        getAdditionalCss: async (t) => {
-            return (await t.tmpData()).additionalCss?.join('') ?? ''
+        getAdditionalCss: (t) => {
+            return t.tmpData().additionalCss?.join('') ?? ''
         },
     }
 
@@ -460,7 +462,7 @@ test('Add additional css example', async t => {
         id: 'someTemplate',
         parent: baseTemplate,
         body: async (t) => {
-            await t.addAdditionalCss(`
+            t.addAdditionalCss(`
 body {
     background-color: black;
     color: white;
@@ -491,4 +493,18 @@ body {
     <p>Hello World</p>
 </body>
 </html>`)
+})
+
+test('async and await', async t => {
+    const result = tRex({
+        id: 'rT',
+        main: (t) => {
+            return t.sub()
+        },
+        sub: (t) => {
+            return t.sub1()
+        },
+        sub1: 'It is not async!' 
+    })
+    t.is(result, 'It is not async!')
 })

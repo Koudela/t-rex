@@ -24,12 +24,14 @@ npm install t-rex4js
 (async () => {
     const { tRex } = await import('t-rex4js')
 
-    tRex({
+    const content = tRex({
         id: 'myRootTemplate',
-        main: async (t) => await t.hello() + ' ' + await t.world(),
+        main: (t) => t.hello() + ' ' + t.world(),
         hello: 'Hello',
         world: 'world!',
-    }).then(content => console.log(content))
+    })
+    
+    console.log(content)
 })()
 ```
 
@@ -41,7 +43,7 @@ but uses a much cleaner more simplified user interface and architecture.
 ### Template and context chain
 
 For every template rendering the user has to pass a template chain and a context
-chain. Both are basically objects with an `id` which may have a `parent`property 
+chain. Both are basically objects with an `id` which may have a `parent` property 
 pointing to a parent object. As each parent can have a parent of its own it can be 
 seen as chain.
 
@@ -101,24 +103,23 @@ respected by this call. If the first parameter is not `null` the `parent` call i
 not targeted at the immediate parent but the remaining chain is traversed (without
 property search) until a provider with the given id is found.
 
-All remaining parameters have to be passed explicitly, too: `await t.parent(startingId, ...params)`
+All remaining parameters have to be passed explicitly, too: `t.parent(startingId, ...params)`
 
 ### t.iterate
 
 The `iterate` call is a special call to iterate over any finite iterable.
 
 ```js
-await t.iterate('propertyName', iterable, ...params)
+t.iterate('propertyName', iterable, ...params)
 ```
 
-It is a shorthand for:
+It iterates over the following call:
 
 ```js
-const arrayOfValues = Array.isArray(iterable) ? iterable : [...iterable]
-(await Promise.all(arrayOfValues.map(
-    (value, index) => t.propertyName(value, index, arrayOfValues, ...params)
-)))
+t.propertyName(value, index, arr, ...params)
 ```
+
+Where `arr` is the array from the iterable.
 
 ## Special properties
 
@@ -132,14 +133,11 @@ If there is no 404 property the template engine throws an error instead.
 
 The default attaches the rendering stack trace to the error message.
 
-The chain must not create a circle, otherwise t-rex is not able to detect if a property 
-is not contained in the chain and will be caught at some point in an endless loop.
-
 ### 500
 
-Whenever an error occurs in a property the 500 property is called with the template
-proxy first, the current property name second and the error object third, followed 
-by the parameters. You can use this to handle errors.
+Whenever an error occurs in a property function the 500 property is called with 
+the template proxy first, the current property name second and the error object 
+third, followed by the parameters. You can use this to handle errors.
 
 The default attaches the rendering stack trace to the error message.
 
@@ -171,6 +169,10 @@ const entrypoint = 'main'
 const output = await tRex(template, context, entrypoint)
 ```
 
+## Async and await
+
+Whenever possible `t.propertyName()` returns without a Promise. If the executet template and context code does not trigger a Promise you can even call `tRex` without an `await`. 
+
 ## Debugging a template
 
 `t.debug()` will give access to the current debug instance of the template engine. 
@@ -178,7 +180,7 @@ Thus, you have access to the parameters passed to the `tRex` function. You can p
 the template/context call stack and set the debugMarks property to `true` or `false`.
 
 ```js
-const debug = await t.debug()
+const debug = t.debug()
 debug.template                    // root template
 debug.context                     // root context
 debug.entrypoint                  // entrypoint
@@ -210,7 +212,7 @@ await t.content()            // debugging marks are added to the output of t.con
 t.debug().debugMarks = false // turns debugging marks off locally
 ```
 
-Be aware of the async nature of the template engine. If you turn debugging marks on
+Be carefull if you use async code. If you turn debugging marks on
 and off in different function calls, the behaviour may not be predictable.
 
 You can pass the `debugMarks` parameter to the `tRex` function, too.
@@ -230,17 +232,17 @@ const { tRex } = await import('t-rex4js')
 const parentTemplate = {
     id: 'myParentTemplate',
     parent: null,
-    main: async (t) => {
+    main: (t) => {
         return `<!doctype html>
 <html lang="en">
 <head>
-    <title>${ await t.title() }</title>
-    ${ await t.head() }
+    <title>${ t.title() }</title>
+    ${ t.head() }
 </head>
 <body>
-    ${ await t.nav() }
-    <h1>${ await t.title() }</h1>
-    ${ await t.content() }
+    ${ t.nav() }
+    <h1>${ t.title() }</h1>
+    ${ t.content() }
 </body>
 </html>`
     },
@@ -252,12 +254,12 @@ const parentTemplate = {
 const renderedTemplate = {
     id: 'myTemplate',
     parent: parentTemplate,
-    nav: async (t) => {
+    nav: (t) => {
         return `
-    <nav>${ (await t.iterate('navItemBlock', await t.navItems())).join('') }
+    <nav>${ t.iterate('navItemBlock', t.navItems()).join('') }
     </nav>`
     },
-    navItemBlock: async (t, value, index, original) => {
+    navItemBlock: (t, value, index, original) => {
         return `
         <a href="${ value.href }">(${ index }) ${ value.content }</a>`
     },
@@ -273,8 +275,7 @@ const context = {
     ],
 }
 
-
-const output = await tRex(renderedTemplate, context, 'main');
+const output = tRex(renderedTemplate, context, 'main');
 
 // console.log(output) gives:
 //
@@ -355,7 +356,7 @@ const additionalCss = []
 const baseTemplate = {
     id: 'baseTemplate',
     //...
-    addAdditionalCss: async (t, css) => {
+    addAdditionalCss: (t, css) => {
         additionalCss.push(css)
     },
     getAdditionalCss: () => {
@@ -371,13 +372,13 @@ const baseTemplate = {
 const baseTemplate = {
     id: 'baseTemplate',
     //...
-    addAdditionalCss: async (t, css) => {
-        const data = await t.tmpData()
+    addAdditionalCss: (t, css) => {
+        const data = t.tmpData()
         if ('additionalCss' in data) data.additionalCss.push(css)
         else data.additionalCss = [css]
     },
-    getAdditionalCss: async (t) => {
-        return (await t.tmpData()).additionalCss?.join('') ?? ''
+    getAdditionalCss: (t) => {
+        return t.tmpData().additionalCss?.join('') ?? ''
     },
     //...
 }
@@ -408,7 +409,7 @@ const baseTemplate = {
 <head>
     <title>${ await parts[0] }</title>
     ${ await parts[1] }
-    <style>${ await t.getAdditionalCss() }</style>
+    <style>${ t.getAdditionalCss() }</style>
 </head>
 <body>
     ${ await parts[2] }
@@ -425,7 +426,7 @@ Now we can add css to our output:
 const someTemplate = {
     //...
     someComponent: async (t, ...params) => {
-        await t.addAdditionalCss(`
+        t.addAdditionalCss(`
             //... some lines of css
         `)
         // the other code of the component/block

@@ -1,6 +1,6 @@
 {
     "name": "t-rex4js",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "description": "Template Resolver Engine Xtreme",
     "main": "index.mjs",
     "scripts": {
