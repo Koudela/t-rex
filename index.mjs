@@ -8,7 +8,7 @@
  * @license http://opensource.org/licenses/MIT MIT License
  */
 
-export { tRex, FinalException, ValidationException }
+export { tRex, FinalException, FinalNotFoundException, ValidationException }
 
 class FinalException extends Error {
     constructor(msg, previous) {
@@ -16,6 +16,8 @@ class FinalException extends Error {
         this.previous = previous
     }
 }
+
+class FinalNotFoundException extends FinalException {}
 
 class ValidationException extends Error {}
 
@@ -159,7 +161,9 @@ function tRex(templateChain, contextChain=null, entrypoint='main', debugMarks=fa
          */
         function handleNotFound(startProviderId) {
             if (location === '500' && params[1] instanceof Error) throwFinal('', params[1])
-            if (location === '404') throwFinal(`"Resource '${params[0]}' not found` + (params[1] ? ` for start provider id '${ params[1] }'."` : `."`))
+            if (location === '404') throw new FinalNotFoundException(
+                `"Resource '${params[0]}' not found` + (params[1] ? ` for start provider id '${ params[1] }'."` : `."`) + ` tRex stack: [${printStack()}]`
+            )
 
             return render(Array.from(callStack), '404', location, startProviderId, ...params)
         }
@@ -202,7 +206,7 @@ function tRex(templateChain, contextChain=null, entrypoint='main', debugMarks=fa
     return handlePromiseOnError(() => render([], entrypoint), beautifyError)
 
     function beautifyError(e) {
-        if (e instanceof FinalException && e.previous !== null) {
+        if (e instanceof FinalException && e.previous) {
             e.previous.message = e.previous.message+' -->'+e.message
             throw e.previous
         }
