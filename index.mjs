@@ -157,11 +157,11 @@ function tRex(templateChain, contextChain=null, entrypoint='main', debugMarks=fa
         /**
          * @return {Promise<*>|*}
          */
-        function handleNotFound() {
+        function handleNotFound(startProviderId) {
             if (location === '500' && params[1] instanceof Error) throwFinal('', params[1])
-            if (location === '404') throwFinal(`"Resource '${params[0]}' not found."`)
+            if (location === '404') throwFinal(`"Resource '${params[0]}' not found` + (params[1] ? ` for start provider id '${ params[1] }'."` : `."`))
 
-            return render(Array.from(callStack), '404', location, ...params)
+            return render(Array.from(callStack), '404', location, startProviderId, ...params)
         }
 
         /**
@@ -170,7 +170,7 @@ function tRex(templateChain, contextChain=null, entrypoint='main', debugMarks=fa
         function getRessource(startProviderId) {
             const [objId, resolved] = chainProvider.get(location, startProviderId)
 
-            if (typeof resolved === 'undefined') return handleNotFound()
+            if (typeof resolved === 'undefined') return handleNotFound(startProviderId)
 
             function addDebugMarks(value) {
                 if (!debug.debugMarks || typeof value !== 'string') return value

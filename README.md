@@ -127,7 +127,8 @@ Where `arr` is the array from the iterable.
 
 If a property is neither found in the context chain nor in the template chain the
 404 property is called with the template proxy first and the missing property name
-second, followed by the parameters. You can use this to handle missing properties.
+second, the start provider id third, followed by the parameters. You can use this 
+to handle missing properties.
 
 If there is no 404 property the template engine throws an error instead.
 

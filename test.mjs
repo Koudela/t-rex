@@ -95,7 +95,7 @@ test('t.parent call in context', async t => {
         tRex(template, context, 'contextParentCall')
         t.fail()
     } catch (e) {
-        t.is(e.message, '"Resource \'contextParentCall\' not found." tRex stack: [contextParentCall@rootContext]')
+        t.is(e.message, '"Resource \'contextParentCall\' not found for start provider id \'parentContext\'." tRex stack: [contextParentCall@rootContext]')
     }
 })
 
@@ -167,7 +167,7 @@ test('404', async t => {
     } catch (e) {
         t.is(e.message, '"Resource \'notFound\' not found." tRex stack: [main@rT]')
     }
-    const result = await tRex({
+    const result1 = await tRex({
         id: 'rT',
         404: async (t, ...params) => {
             return params
@@ -176,9 +176,26 @@ test('404', async t => {
             return t.notFound('Where is it?')
         }
     })
-    t.deepEqual(result, [
+    t.deepEqual(result1, [
         'notFound',
+        null,
         'Where is it?',
+    ])
+    const result2 = await tRex({
+        id: 'rT',
+        parent: {
+            id: 'pT'
+        },
+        404: async (t, ...params) => {
+            return params
+        },
+        main: async (t) => {
+            return t.parent()
+        }
+    })
+    t.deepEqual(result2, [
+        'main',
+        'pT',
     ])
 })
 
